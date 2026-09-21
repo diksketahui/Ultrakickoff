@@ -4,5 +4,7 @@
 *.p12
 android/local.properties
 node_modules/
+android/
+www/
 android/app/build/
 # Secrets hanya via GitHub Settings > Secrets > Actions

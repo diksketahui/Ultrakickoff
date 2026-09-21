@@ -21,8 +21,14 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
       - run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-      - run: npx cap add android || true
-      - run: npx cap sync || true
+      - run: |
+          rm -rf www android
+          mkdir -p www
+          cp index.html www/
+          cp -r css js data www/
+          ls -R www | head -n 30
+      - run: npx cap add android
+      - run: npx cap sync
       - run: |
           if [ -f android/gradlew ]; then
             cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
@@ -51,8 +57,14 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
       - run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-      - run: npx cap add android || true
-      - run: npx cap sync || true
+      - run: |
+          rm -rf www android
+          mkdir -p www
+          cp index.html www/
+          cp -r css js data www/
+          ls -R www | head -n 30
+      - run: npx cap add android
+      - run: npx cap sync
       - run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
             echo "SKIP_RELEASE_NO_SECRETS"
