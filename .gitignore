@@ -1,0 +1,8 @@
+# Jangan commit keystore / secret ke repo (walau nanti private)
+*.jks
+*.keystore
+*.p12
+android/local.properties
+node_modules/
+android/app/build/
+# Secrets hanya via GitHub Settings > Secrets > Actions
