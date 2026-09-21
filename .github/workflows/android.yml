@@ -33,7 +33,7 @@ jobs:
           if-no-files-found: error
   release:
     needs: debug
-    if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+    if: "${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
