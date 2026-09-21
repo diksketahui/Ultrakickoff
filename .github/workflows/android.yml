@@ -37,7 +37,6 @@ jobs:
           if-no-files-found: error
   release:
     needs: debug
-    if: "${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +53,23 @@ jobs:
       - run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
       - run: npx cap add android || true
       - run: npx cap sync || true
-      - run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/ultrakickoff-rel.jks
+      - run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "SKIP_RELEASE_NO_SECRETS"
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/ultrakickoff-rel.jks
+          ls -la /tmp/ultrakickoff-rel.jks
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       - run: |
+          if [ ! -f /tmp/ultrakickoff-rel.jks ]; then
+            echo "SKIP_SIGNED_BUILD_NO_KEYSTORE"
+            exit 0
+          fi
           cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon -Pandroid.injected.signing.store.file=/tmp/ultrakickoff-rel.jks -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" -Pandroid.injected.signing.key.alias="$KEY_ALIAS" -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -67,3 +79,4 @@ jobs:
         with:
           name: ultrakickoff-release
           path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
