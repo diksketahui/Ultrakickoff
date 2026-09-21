@@ -25,7 +25,8 @@ jobs:
           rm -rf www android
           mkdir -p www
           cp index.html www/
-          cp -r css js data www/
+          cp -r css js www/
+          [ -d data ] && cp -r data www/ || true
           ls -R www | head -n 30
       - run: npx cap add android
       - run: npx cap sync
@@ -61,7 +62,8 @@ jobs:
           rm -rf www android
           mkdir -p www
           cp index.html www/
-          cp -r css js data www/
+          cp -r css js www/
+          [ -d data ] && cp -r data www/ || true
           ls -R www | head -n 30
       - run: npx cap add android
       - run: npx cap sync
