@@ -1,7 +1,7 @@
 name: android
+# DINONAKTIFKAN otomatis: wrapper HTML5 lama (Capacitor). APK resmi hanya dari
+# workflow `godot` (artefak ultrakickoff-android-apk ~46MB). Manual bila perlu.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 jobs:
   debug:
