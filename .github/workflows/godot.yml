@@ -1,0 +1,70 @@
+name: godot
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: godot-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y unzip curl
+      - name: Install Godot 4.3 + templates
+        run: |
+          set -e
+          GODOT_V="4.3-stable"
+          mkdir -p /tmp/godot-ci
+          cd /tmp/godot-ci
+          curl -fL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_V}/Godot_v${GODOT_V}_linux.x86_64.zip"
+          unzip -o godot.zip
+          chmod +x Godot_v${GODOT_V}_linux.x86_64
+          sudo mv Godot_v${GODOT_V}_linux.x86_64 /usr/local/bin/godot
+          godot --version
+          curl -fL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_V}/Godot_v${GODOT_V}_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          unzip -o templates.tpz -d ~/.local/share/godot/export_templates/4.3.stable
+          # flatten one level if needed (tpz contains templates/ dir)
+          if [ -d ~/.local/share/godot/export_templates/4.3.stable/templates ]; then
+            mv ~/.local/share/godot/export_templates/4.3.stable/templates/* ~/.local/share/godot/export_templates/4.3.stable/
+            rmdir ~/.local/share/godot/export_templates/4.3.stable/templates || true
+          fi
+          ls -la ~/.local/share/godot/export_templates/4.3.stable | head -n 30
+      - name: Import (tanpa HTML5)
+        run: |
+          set -e
+          godot --headless --path godot --import
+          echo "IMPORT_OK"
+          test -f godot/export_presets.cfg
+          # pastikan tidak ada preset Web/HTML5 sesuai permintaan
+          if grep -qi '"Web"\|platform="Web"' godot/export_presets.cfg; then
+            echo "FORBIDDEN_WEB_PRESET_FOUND"
+            exit 1
+          fi
+          echo "NO_WEB_PRESET_OK"
+      - name: Validate GDScript
+        run: |
+          set -e
+          for f in godot/scripts/config.gd godot/scripts/teams.gd godot/scripts/tactics.gd godot/scripts/engine.gd godot/scripts/manager.gd godot/scripts/main.gd; do
+            echo "CHECK $f"
+            godot --headless --path godot --check-only --script "res://${f#godot/}"
+          done
+          echo "GDSCRIPT_CHECK_OK"
+      - name: Export Linux + Windows
+        run: |
+          set -e
+          mkdir -p build/linux build/windows
+          godot --headless --path godot --export-release "Linux" "../build/linux/ultrakickoff.x86_64"
+          godot --headless --path godot --export-release "Windows" "../build/windows/ultrakickoff.exe"
+          ls -lh build/linux build/windows
+          echo "EXPORT_OK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ultrakickoff-godot-desktop
+          path: |
+            build/linux/
+            build/windows/
+          if-no-files-found: error

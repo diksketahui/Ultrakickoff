@@ -7,4 +7,6 @@ node_modules/
 android/
 www/
 android/app/build/
+build/
+godot/.godot/
 # Secrets hanya via GitHub Settings > Secrets > Actions
