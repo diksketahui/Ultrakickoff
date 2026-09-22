@@ -8,6 +8,7 @@ config/name="Ultrakickoff"
 config/description="Manager simulasi Liga Indonesia — versi Godot (port dari JS). Tanpa HTML5."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
 boot_splash/bg_color=Color(0.043, 0.07, 0.125, 1)
 
 [display]
