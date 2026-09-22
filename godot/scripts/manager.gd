@@ -4,9 +4,20 @@ extends RefCounted
 static var confidence: int = 60
 static var fan_mood: int = 65
 static var sponsor: int = 100
-static var cash: int = 50
+# Kas dalam JUTA Rupiah (8000 = Rp8,0 M). Transfer realistis ala Liga Indonesia.
+static var cash: int = 8000
 static var scandal: int = 0
 static var target: String = "-"
+
+static func rupiah(jt: float) -> String:
+	if jt >= 1000.0:
+		var s: String = "%.1f" % (jt / 1000.0)
+		return "Rp" + s.replace(".", ",") + " M"
+	return "Rp%d jt" % int(jt)
+
+static func transfer_fee(ovr: int, pot: int, age: int) -> int:
+	var fee: int = (ovr - 58) * (ovr - 58) * 6 + maxi(0, pot - ovr) * 40 + maxi(0, 21 - age) * 30
+	return maxi(150, fee)
 
 static func set_target(division: String, idx: int = 2) -> String:
 	var list: Array = UKConfig.CLUB_TARGETS_SUPER if division == "super" else UKConfig.CLUB_TARGETS_CHAMP
@@ -37,12 +48,12 @@ static func sponsor_tick(res: String) -> String:
 	elif res == "lose":
 		sponsor = maxi(0, sponsor - 4)
 	if res == "win":
-		cash += 4
+		cash += 350
 	elif res == "draw":
-		cash += 1
+		cash += 120
 	else:
-		cash -= 1
-	return "sponsor %d | kas %d" % [sponsor, cash]
+		cash -= 80
+	return "sponsor %d | kas %s" % [sponsor, rupiah(float(cash))]
 
 static func fan_tick(res: String, derby: bool = false) -> String:
 	if res == "win":
@@ -59,9 +70,9 @@ static func fan_tick(res: String, derby: bool = false) -> String:
 	return "dukungan penuh"
 
 static func stadium_income(att: int) -> String:
-	var inc: int = int(round(float(att) * 0.001))
+	var inc: int = int(round(float(att) * 0.05))
 	cash += inc
-	return "tiket +%d | merch +%d" % [inc, int(round(float(inc) * 0.4))]
+	return "tiket +%s | merch +%s" % [rupiah(float(inc)), rupiah(float(inc) * 0.4)]
 
 static func academy_intake() -> Array:
 	var names: Array = ["Raka", "Dimas", "Fajar", "Bagas", "Yoga", "Ilham", "Rizky", "Andika", "Putra", "Galih", "Bima", "Eko"]
@@ -101,7 +112,7 @@ static func satisfaction(minutes: int, target_minutes: int) -> int:
 static func titipan_event() -> Dictionary:
 	var t: Array = ["anak legenda minta debut 3 laga", "anak sponsor wajib main 5 laga", "anak artis minta nomor 10"]
 	var p: String = str(t[randi() % t.size()])
-	return {"TITIPAN": p, "efek": "Terima: kas +8, fans -5 jika jelek. Tolak: confidence -6, ruang ganti +5."}
+	return {"TITIPAN": p, "efek": "Terima: kas +Rp800 jt, fans -5 jika jelek. Tolak: confidence -6, ruang ganti +5."}
 
 static func ref_event(choice: String) -> Dictionary:
 	if choice == "sogok":

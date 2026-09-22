@@ -20,10 +20,15 @@ var academy: Array = []
 var inbox: Array = []
 var table: Array = []
 var results: Array = []
+var fixtures: Array = []
+var fixture_idx: int = 0
+var market: Array = []
+var trophies: Array = []
 var season_played: int = 0
 var season_w: int = 0
 var season_d: int = 0
 var season_l: int = 0
+var season_no: int = 1
 var last_result: String = "-"
 var next_opp: Dictionary = {}
 var inbox_seq: int = 0
@@ -51,6 +56,7 @@ var sfx: UKSfx
 var tabs: TabContainer
 var status_bar: Label
 var club_option: OptionButton
+var dash_logo: TextureRect
 var dash_club: Label
 var dash_form: Label
 var dash_news: Label
@@ -60,6 +66,11 @@ var dash_top: Label
 var table_grid: GridContainer
 var squad_grid: GridContainer
 var squad_info: Label
+var market_list: ItemList
+var sale_list: ItemList
+var transfer_info: Label
+var trophy_row: HBoxContainer
+var trophy_info: Label
 var tactic_form: OptionButton
 var tactic_line: HSlider
 var tactic_press: HSlider
@@ -199,6 +210,7 @@ func _build_ui() -> void:
 	root.add_child(tabs)
 	_build_home()
 	_build_squad()
+	_build_transfer()
 	_build_taktik()
 	_build_match()
 	_build_academy()
@@ -230,6 +242,11 @@ func _build_home() -> void:
 	var sb := _btn(c1, "Mulai Karir ▶")
 	sb.pressed.connect(_on_start)
 	var c2 := _card(d, "🏟 Klub Saya")
+	dash_logo = TextureRect.new()
+	dash_logo.custom_minimum_size = Vector2(72, 72)
+	dash_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	dash_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	c2.add_child(dash_logo)
 	dash_club = Label.new()
 	dash_club.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	c2.add_child(dash_club)
@@ -258,7 +275,7 @@ func _build_home() -> void:
 	c5.add_child(table_grid)
 
 func _on_goto_match() -> void:
-	tabs.current_tab = 3
+	tabs.current_tab = 4
 
 # ---------------- SQUAD ----------------
 func _build_squad() -> void:
@@ -270,6 +287,89 @@ func _build_squad() -> void:
 	squad_grid = GridContainer.new()
 	squad_grid.columns = 6
 	c.add_child(squad_grid)
+
+# ---------------- TRANSFER (Rupiah) ----------------
+func _build_transfer() -> void:
+	var tf := _mk_tab("💸 Transfer")
+	var c1 := _card(tf, "💸 Bursa Transfer (Rp)")
+	transfer_info = Label.new()
+	transfer_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	c1.add_child(transfer_info)
+	market_list = ItemList.new()
+	market_list.custom_minimum_size = Vector2(0, 200)
+	c1.add_child(market_list)
+	var bb := _btn(c1, "Beli Pemain Terpilih 💰")
+	bb.pressed.connect(_on_buy)
+	var c2 := _card(tf, "📤 Jual Pemain")
+	sale_list = ItemList.new()
+	sale_list.custom_minimum_size = Vector2(0, 200)
+	c2.add_child(sale_list)
+	var sb2 := _btn(c2, "Jual Pemain Terpilih (70%) 💵")
+	sb2.pressed.connect(_on_sell)
+
+func _gen_market() -> void:
+	market.clear()
+	var poses: Array = ["GK", "DF", "MF", "FW"]
+	for i in range(8):
+		var age: int = 18 + randi() % 15
+		var ovr: int = 64 + randi() % 22
+		var pot: int = mini(UKConfig.POT_MAX, ovr + randi() % 13)
+		var fee: int = UKManager.transfer_fee(ovr, pot, age)
+		market.append({"name": _player_name(), "pos": str(poses[randi() % poses.size()]), "age": age, "ovr": ovr, "pot": pot, "fee": fee})
+	_render_market()
+
+func _render_market() -> void:
+	market_list.clear()
+	sale_list.clear()
+	if club.is_empty():
+		transfer_info.text = "Mulai karir dulu."
+		return
+	transfer_info.text = "Kas: %s • Belanja bijak, Coach!" % UKManager.rupiah(float(UKManager.cash))
+	for p in market:
+		market_list.add_item("%s %s | %dth OVR %d POT %d | %s" % [str(p["pos"]), str(p["name"]), int(p["age"]), int(p["ovr"]), int(p["pot"]), UKManager.rupiah(float(p["fee"]))])
+	for p in squad:
+		var fee: int = int(float(UKManager.transfer_fee(int(p["ovr"]), int(p["ovr"]) + 3, int(p["age"]))) * 0.7)
+		sale_list.add_item("%s %s | %dth OVR %d | jual %s" % [str(p["pos"]), str(p["name"]), int(p["age"]), int(p["ovr"]), UKManager.rupiah(float(fee))])
+
+func _on_buy() -> void:
+	var sel: PackedInt32Array = market_list.get_selected_items()
+	if sel.is_empty():
+		_show_info("Transfer", "Pilih pemain dulu.")
+		return
+	if squad.size() >= 25:
+		_show_info("Transfer", "Skuad penuh (25). Jual dulu.")
+		return
+	var p: Dictionary = market[sel[0]]
+	if UKManager.cash < int(p["fee"]):
+		_show_info("Transfer", "Kas kurang! Butuh %s." % UKManager.rupiah(float(p["fee"])))
+		return
+	UKManager.cash -= int(p["fee"])
+	squad.append({"name": str(p["name"]), "pos": str(p["pos"]), "age": int(p["age"]), "ovr": int(p["ovr"]), "stam": 80, "morale": 72})
+	_push_inbox("✍ HERE WE GO: " + str(p["name"]), "Bang R mengonfirmasi! %s OVR %d bergabung dengan mahar %s." % [str(p["name"]), int(p["ovr"]), UKManager.rupiah(float(p["fee"]))], "rumor", {})
+	market.remove_at(sel[0])
+	_render_market()
+	_render_squad()
+	_update_status()
+	sfx.play("cheer")
+	_show_info("Transfer sukses", "%s resmi berseragam %s!" % [str(p["name"]), str(club["name"])])
+
+func _on_sell() -> void:
+	var sel: PackedInt32Array = sale_list.get_selected_items()
+	if sel.is_empty():
+		_show_info("Transfer", "Pilih pemain skuad dulu.")
+		return
+	if squad.size() <= 11:
+		_show_info("Transfer", "Skuad minimal 11 pemain!")
+		return
+	var p: Dictionary = squad[sel[0]]
+	var fee: int = int(float(UKManager.transfer_fee(int(p["ovr"]), int(p["ovr"]) + 3, int(p["age"]))) * 0.7)
+	UKManager.cash += fee
+	squad.remove_at(sel[0])
+	_push_inbox("💵 Terjual: " + str(p["name"]), "%s dilepas dengan harga %s." % [str(p["name"]), UKManager.rupiah(float(fee))], "info", {})
+	_render_market()
+	_render_squad()
+	_update_status()
+	_show_info("Penjualan sukses", "%s terjual %s." % [str(p["name"]), UKManager.rupiah(float(fee))])
 
 # ---------------- TAKTIK ----------------
 func _build_taktik() -> void:
@@ -457,6 +557,13 @@ func _build_board() -> void:
 	ic.pressed.connect(_on_income)
 	var fd := _btn(c2, "Minta Dana 💰")
 	fd.pressed.connect(_on_funds)
+	var c3 := _card(b, "🏆 Lemari Trofi")
+	trophy_row = HBoxContainer.new()
+	trophy_row.add_theme_constant_override("separation", 10)
+	c3.add_child(trophy_row)
+	trophy_info = Label.new()
+	trophy_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	c3.add_child(trophy_info)
 
 # ---------------- KARIR ----------------
 func _refresh_clubs() -> void:
@@ -503,17 +610,18 @@ func _build_table() -> void:
 			table.append({"id": str(cand["id"]), "name": str(cand["name"]), "played": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0, "mine": false})
 			added += 1
 		k += 1
+	fixtures.clear()
+	for t in table:
+		if not bool(t["mine"]):
+			fixtures.append(t)
+	fixture_idx = 0
 	_pick_next_fixture()
 
 func _pick_next_fixture() -> void:
-	var rivals: Array = []
-	for t in table:
-		if not bool(t["mine"]):
-			rivals.append(t)
-	if rivals.is_empty():
-		next_opp = {}
+	if fixture_idx >= 0 and fixture_idx < fixtures.size():
+		next_opp = fixtures[fixture_idx]
 	else:
-		next_opp = rivals[randi() % rivals.size()]
+		next_opp = {}
 
 func _on_start() -> void:
 	var all: Array = UKTeams.all_teams()
@@ -521,17 +629,23 @@ func _on_start() -> void:
 	UKManager.confidence = 60
 	UKManager.fan_mood = 65
 	UKManager.sponsor = 100
-	UKManager.cash = 50
+	UKManager.cash = 8000
 	UKManager.scandal = 0
 	UKManager.set_target(str(club["division"]), 2)
 	season_played = 0
 	season_w = 0
 	season_d = 0
 	season_l = 0
+	season_no = 1
 	results.clear()
+	trophies.clear()
 	last_result = "-"
 	_gen_squad(int(club["ovr"]))
 	_build_table()
+	_gen_market()
+	var logo: Texture2D = load("res://assets/logos/" + str(club["id"]) + ".svg") as Texture2D
+	if logo != null:
+		dash_logo.texture = logo
 	match_active = false
 	match_timer.stop()
 	pause_btn.disabled = true
@@ -545,7 +659,7 @@ func _update_status() -> void:
 	if club.is_empty():
 		status_bar.text = "Belum ada karir. Pilih klub di Home."
 	else:
-		status_bar.text = "%s • Pekan %d • %d pts (%dM %dS %dK) • Conf %d • Kas %d" % [str(club["name"]), season_played + 1, season_w * 3 + season_d, season_w, season_d, season_l, UKManager.confidence, UKManager.cash]
+		status_bar.text = "%s • Musim %d Pekan %d • %d pts (%dM %dS %dK) • Conf %d • %s" % [str(club["name"]), season_no, season_played + 1, season_w * 3 + season_d, season_w, season_d, season_l, UKManager.confidence, UKManager.rupiah(float(UKManager.cash))]
 
 func _form_str() -> String:
 	if results.is_empty():
@@ -560,6 +674,7 @@ func _form_str() -> String:
 func _render_all() -> void:
 	_render_dashboard()
 	_render_squad()
+	_render_market()
 	_render_tactic_info()
 	_render_academy_list()
 	_render_inbox_list()
@@ -639,9 +754,19 @@ func _render_squad() -> void:
 		hl.add_theme_color_override("font_color", GOLD)
 		squad_grid.add_child(hl)
 	for p in squad:
-		for cell in [str(p["name"]), str(p["pos"]), str(p["age"]), str(p["ovr"]), str(p["stam"]), str(p["morale"])]:
+		var cell := HBoxContainer.new()
+		cell.add_theme_constant_override("separation", 4)
+		var face := FaceAvatar.new()
+		face.face_size = 30.0
+		face.player_name = str(p["name"])
+		cell.add_child(face)
+		var nm := Label.new()
+		nm.text = str(p["name"])
+		cell.add_child(nm)
+		squad_grid.add_child(cell)
+		for extra in [str(p["pos"]), str(p["age"]), str(p["ovr"]), str(p["stam"]), str(p["morale"])]:
 			var cl := Label.new()
-			cl.text = cell
+			cl.text = extra
 			squad_grid.add_child(cl)
 
 func _render_tactic_info() -> void:
@@ -882,10 +1007,66 @@ func _finish_match() -> void:
 	var sponsor_msg: String = UKManager.sponsor_tick(res)
 	_push_inbox("Hasil: " + last_result, "Board: " + board_msg + "\nFans: " + fans_msg + "\n" + sponsor_msg, "result", {})
 	_push_inbox(UKManager.rumor(str(match_away["name"])), "Kabar transfer dari Bang R.", "rumor", {})
+	fixture_idx += 1
 	_pick_next_fixture()
 	_refresh_match_ui()
 	_render_all()
+	if fixture_idx >= fixtures.size():
+		_finish_season()
+		return
 	_show_info("🏁 Laga selesai", "%s\n🥅 Tembakan %d-%d • Possession %s\n\nBoard: %s\nFans: %s\n%s" % [last_result, shots_h, shots_a, _poss_str(), board_msg, fans_msg, sponsor_msg])
+
+func _reset_table_stats() -> void:
+	for t in table:
+		t["played"] = 0
+		t["w"] = 0
+		t["d"] = 0
+		t["l"] = 0
+		t["gf"] = 0
+		t["ga"] = 0
+		t["pts"] = 0
+
+func _finish_season() -> void:
+	var order: Array = _sorted_table()
+	var champ: Dictionary = order[0]
+	var my_pos: int = 0
+	for i in range(order.size()):
+		if bool(order[i]["mine"]):
+			my_pos = i + 1
+	var prize: int = 0
+	var headline: String = ""
+	if my_pos == 1:
+		prize = 5000
+		trophies.append({"icon": "piala_liga", "name": "Juara Liga (Musim %d)" % season_no})
+		headline = "🏆 JUARA! %s menjuarai mini-liga musim %d!" % [str(club["name"]), season_no]
+		sfx.play("cheer")
+	elif my_pos <= 3:
+		prize = 1500
+		headline = "Peringkat %d. Hampir juara, coba lagi musim depan!" % my_pos
+	else:
+		headline = "Peringkat %d. Board kecewa, bangkit musim depan!" % my_pos
+		UKManager.confidence = clampi(UKManager.confidence - 5, 0, 100)
+	UKManager.cash += prize
+	var ranked: Array = squad.duplicate()
+	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["ovr"]) > int(b["ovr"]))
+	var mvp: String = str(ranked[0]["name"]) if not ranked.is_empty() else "-"
+	trophies.append({"icon": "pemain_terbaik", "name": "MVP %s (Musim %d)" % [mvp, season_no]})
+	var boot_name: String = _player_name()
+	var boot_goals: int = 6 + randi() % 5
+	var glove_team: String = str(champ["name"])
+	_push_inbox("🏁 " + headline, "Juara: %s\nHadiah: %s\n\n🥇 MVP: %s\n👟 Sepatu Emas: %s (%d gol)\n🧤 Sarung Emas: kiper %s" % [str(champ["name"]), UKManager.rupiah(float(prize)), mvp, boot_name, boot_goals, glove_team], "board", {})
+	season_no += 1
+	season_played = 0
+	season_w = 0
+	season_d = 0
+	season_l = 0
+	results.clear()
+	_reset_table_stats()
+	fixture_idx = 0
+	_pick_next_fixture()
+	_gen_market()
+	_render_all()
+	_show_info("🏁 Musim selesai", "%s\n\nJuara: %s\nHadiah: %s\n🥇 MVP: %s\n👟 Top skor: %s (%d gol)\n🧤 Kiper terbaik: %s\n\nMusim baru dimulai!" % [headline, str(champ["name"]), UKManager.rupiah(float(prize)), mvp, boot_name, boot_goals, glove_team])
 
 # ---------------- INBOX / MEDIA ----------------
 func _push_inbox(title: String, body: String, kind: String, data: Dictionary) -> void:
@@ -928,19 +1109,19 @@ func _on_open_message() -> void:
 		return
 	var m: Dictionary = inbox[sel[0]]
 	if str(m["kind"]) == "titipan":
-		_ask("⚖ Keputusan Titipan", str(m["title"]) + "\n\n" + str(m["body"]) + "\n\nTerima = kas +8, fans -5.\nTolak = confidence -6.", "titipan", sel[0], "Terima", "Tolak")
+		_ask("⚖ Keputusan Titipan", str(m["title"]) + "\n\n" + str(m["body"]) + "\n\nTerima = kas +Rp800 jt, fans -5.\nTolak = confidence -6.", "titipan", sel[0], "Terima", "Tolak")
 	else:
 		_show_info(str(m["title"]), str(m["body"]))
 
 func _on_ask_confirmed() -> void:
 	if ask_action == "titipan" and ask_index >= 0 and ask_index < inbox.size():
-		UKManager.cash += 8
+		UKManager.cash += 800
 		UKManager.fan_mood = clampi(UKManager.fan_mood - 5, 0, 100)
 		inbox[ask_index]["title"] = "[DITERIMA] " + str(inbox[ask_index]["title"])
 		_render_inbox_list()
 		_render_board()
 		_update_status()
-		_show_info("Titipan diterima", "Kas +8. Fans -5 jika pemain tampil jelek.")
+		_show_info("Titipan diterima", "Kas +Rp800 jt. Fans -5 jika pemain tampil jelek.")
 	elif ask_action == "teamtalk":
 		match_home["moodAvg"] = float(match_home["moodAvg"]) + 4.0
 		match_lines.append("45' 🔥 Pidato motivasi! Ruang ganti membara.")
@@ -1033,7 +1214,32 @@ func _render_board() -> void:
 	conf_bar.value = float(UKManager.confidence)
 	fans_bar.value = float(UKManager.fan_mood)
 	sponsor_bar.value = float(mini(UKManager.sponsor, 100))
-	board_info.text = "Target: %s\nKas: %d • Sponsor: %d\nStadion %s" % [UKManager.target, UKManager.cash, UKManager.sponsor, str(club["stadium"])]
+	board_info.text = "Target: %s\nKas: %s • Sponsor: %d\nStadion %s" % [UKManager.target, UKManager.rupiah(float(UKManager.cash)), UKManager.sponsor, str(club["stadium"])]
+	_render_trophies()
+
+func _render_trophies() -> void:
+	for c in trophy_row.get_children():
+		c.queue_free()
+	if trophies.is_empty():
+		trophy_info.text = "Belum ada trofi. Juarai liga untuk mengisi lemari ini!"
+		return
+	trophy_info.text = "%d trofi & penghargaan:" % trophies.size()
+	for tr in trophies:
+		var vb := VBoxContainer.new()
+		var im := TextureRect.new()
+		im.custom_minimum_size = Vector2(64, 64)
+		im.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		im.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var tex: Texture2D = load("res://assets/trophies/" + str(tr["icon"]) + ".svg") as Texture2D
+		if tex != null:
+			im.texture = tex
+		vb.add_child(im)
+		var lb := Label.new()
+		lb.text = str(tr["name"])
+		lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lb.custom_minimum_size = Vector2(90, 0)
+		vb.add_child(lb)
+		trophy_row.add_child(vb)
 
 func _on_income() -> void:
 	if club.is_empty():
@@ -1047,9 +1253,9 @@ func _on_funds() -> void:
 	if club.is_empty():
 		return
 	if UKManager.confidence >= 50:
-		UKManager.cash += 10
-		_push_inbox("Board menyetujui dana +10", "Proposal meyakinkan. Kas bertambah.", "board", {})
-		_show_info("💰 Dana disetujui", "Board menggelontorkan kas +10.")
+		UKManager.cash += 2000
+		_push_inbox("Board menyetujui dana", "Proposal meyakinkan. Kas +Rp2,0 M.", "board", {})
+		_show_info("💰 Dana disetujui", "Board menggelontorkan kas +Rp2,0 M.")
 	else:
 		UKManager.confidence = clampi(UKManager.confidence - 3, 0, 100)
 		_push_inbox("Board menolak dana", "Kepercayaan rendah. Proposal ditolak.", "board", {})
