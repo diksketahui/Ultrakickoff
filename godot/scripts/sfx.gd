@@ -42,7 +42,7 @@ func _new_stream(frames: int) -> AudioStreamWAV:
 	s.format = AudioStreamWAV.FORMAT_8_BITS
 	s.mix_rate = RATE
 	s.stereo = false
-	s.loop_mode = AudioStreamWAV.LOOP_NONE
+	s.loop_mode = AudioStreamWAV.LOOP_DISABLED
 	var d := PackedByteArray()
 	d.resize(frames)
 	s.data = d
