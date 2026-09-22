@@ -21,11 +21,26 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(face_size, face_size)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-func _hash() -> int:
+static func hash_of(label: String) -> int:
 	var h: int = 7
-	for c in player_name:
+	for c in label:
 		h = (h * 31 + c.unicode_at(0)) % 1000003
 	return h
+
+static func skin_of(label: String) -> Color:
+	return SKINS[hash_of(label) % SKINS.size()]
+
+static func hair_of(label: String) -> Color:
+	return HAIRS[(hash_of(label) / 7) % HAIRS.size()]
+
+static func shirt_of(label: String) -> Color:
+	return SHIRTS[(hash_of(label) / 13) % SHIRTS.size()]
+
+static func style_of(label: String) -> int:
+	return (hash_of(label) / 29) % 4
+
+func _hash() -> int:
+	return hash_of(player_name)
 
 func _draw() -> void:
 	var r: float = minf(size.x, size.y) * 0.5
@@ -33,10 +48,10 @@ func _draw() -> void:
 		return
 	var ctr := size * 0.5
 	var h: int = _hash()
-	var skin: Color = SKINS[h % SKINS.size()]
-	var hair: Color = HAIRS[(h / 7) % HAIRS.size()]
-	var shirt: Color = SHIRTS[(h / 13) % SHIRTS.size()]
-	var style: int = (h / 29) % 4
+	var skin: Color = skin_of(player_name)
+	var hair: Color = hair_of(player_name)
+	var shirt: Color = shirt_of(player_name)
+	var style: int = style_of(player_name)
 	# badan
 	draw_circle(ctr + Vector2(0, r * 0.95), r * 0.62, shirt)
 	# kepala

@@ -29,6 +29,7 @@ var season_w: int = 0
 var season_d: int = 0
 var season_l: int = 0
 var season_no: int = 1
+var stadium_lv: int = 1
 var last_result: String = "-"
 var next_opp: Dictionary = {}
 var inbox_seq: int = 0
@@ -55,6 +56,8 @@ var sfx: UKSfx
 
 var tabs: TabContainer
 var status_bar: Label
+var head_logo: TextureRect
+var head_res: Label
 var club_option: OptionButton
 var dash_logo: TextureRect
 var dash_club: Label
@@ -82,6 +85,8 @@ var tactic_info: Label
 var tactic_custom: Label
 var pitch: FormationPitch
 var preview: MatchPitch
+var poss_home_rect: ColorRect
+var poss_away_rect: ColorRect
 var score_label: Label
 var minute_label: Label
 var stat_label: Label
@@ -200,10 +205,24 @@ func _build_ui() -> void:
 	sub.text = "Football Manager Liga Indonesia • portrait"
 	sub.add_theme_color_override("font_color", DIM)
 	root.add_child(sub)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	root.add_child(top)
+	head_logo = TextureRect.new()
+	head_logo.custom_minimum_size = Vector2(40, 40)
+	head_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	head_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	top.add_child(head_logo)
+	var topv := VBoxContainer.new()
+	topv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(topv)
 	status_bar = Label.new()
 	status_bar.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_bar.add_theme_color_override("font_color", INK)
-	root.add_child(status_bar)
+	topv.add_child(status_bar)
+	head_res = Label.new()
+	head_res.add_theme_color_override("font_color", GOLD)
+	topv.add_child(head_res)
 	tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -458,6 +477,20 @@ func _build_match() -> void:
 	c2.add_child(score_label)
 	minute_label = Label.new()
 	c2.add_child(minute_label)
+	var poss_wrap := HBoxContainer.new()
+	poss_wrap.add_theme_constant_override("separation", 0)
+	poss_wrap.custom_minimum_size = Vector2(0, 14)
+	c2.add_child(poss_wrap)
+	poss_home_rect = ColorRect.new()
+	poss_home_rect.color = Color(0.25, 0.62, 1.0)
+	poss_home_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	poss_home_rect.size_flags_stretch_ratio = 1.0
+	poss_wrap.add_child(poss_home_rect)
+	poss_away_rect = ColorRect.new()
+	poss_away_rect.color = Color(0.95, 0.3, 0.3)
+	poss_away_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	poss_away_rect.size_flags_stretch_ratio = 1.0
+	poss_wrap.add_child(poss_away_rect)
 	stat_label = Label.new()
 	stat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stat_label.add_theme_color_override("font_color", DIM)
@@ -552,9 +585,11 @@ func _build_board() -> void:
 	board_info = Label.new()
 	board_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	c1.add_child(board_info)
-	var c2 := _card(b, "💼 Keuangan")
+	var c2 := _card(b, "💼 Keuangan & Stadion")
 	var ic := _btn(c2, "Cairkan Stadion 🏟")
 	ic.pressed.connect(_on_income)
+	var up := _btn(c2, "Upgrade Stadion 🏗")
+	up.pressed.connect(_on_upgrade_stadium)
 	var fd := _btn(c2, "Minta Dana 💰")
 	fd.pressed.connect(_on_funds)
 	var c3 := _card(b, "🏆 Lemari Trofi")
@@ -637,6 +672,7 @@ func _on_start() -> void:
 	season_d = 0
 	season_l = 0
 	season_no = 1
+	stadium_lv = 1
 	results.clear()
 	trophies.clear()
 	last_result = "-"
@@ -658,8 +694,13 @@ func _on_start() -> void:
 func _update_status() -> void:
 	if club.is_empty():
 		status_bar.text = "Belum ada karir. Pilih klub di Home."
+		head_res.text = ""
 	else:
-		status_bar.text = "%s • Musim %d Pekan %d • %d pts (%dM %dS %dK) • Conf %d • %s" % [str(club["name"]), season_no, season_played + 1, season_w * 3 + season_d, season_w, season_d, season_l, UKManager.confidence, UKManager.rupiah(float(UKManager.cash))]
+		status_bar.text = "%s • Musim %d Pekan %d • %d pts (%dM %dS %dK)" % [str(club["name"]), season_no, season_played + 1, season_w * 3 + season_d, season_w, season_d, season_l]
+		head_res.text = "💰 %s   🛡 Conf %d   😍 Fans %d" % [UKManager.rupiah(float(UKManager.cash)), UKManager.confidence, UKManager.fan_mood]
+		var logo: Texture2D = load("res://assets/logos/" + str(club["id"]) + ".svg") as Texture2D
+		if logo != null:
+			head_logo.texture = logo
 
 func _form_str() -> String:
 	if results.is_empty():
@@ -675,6 +716,8 @@ func _render_all() -> void:
 	_render_dashboard()
 	_render_squad()
 	_render_market()
+	if not club.is_empty() and pitch != null:
+		pitch.set_lineup(_home_xi_names())
 	_render_tactic_info()
 	_render_academy_list()
 	_render_inbox_list()
@@ -764,10 +807,32 @@ func _render_squad() -> void:
 		nm.text = str(p["name"])
 		cell.add_child(nm)
 		squad_grid.add_child(cell)
-		for extra in [str(p["pos"]), str(p["age"]), str(p["ovr"]), str(p["stam"]), str(p["morale"])]:
-			var cl := Label.new()
-			cl.text = extra
-			squad_grid.add_child(cl)
+		for base in [str(p["pos"]), str(p["age"])]:
+			var bl := Label.new()
+			bl.text = base
+			squad_grid.add_child(bl)
+		squad_grid.add_child(_attr_cell(int(p["ovr"]), Color(0.91, 0.71, 0.30)))
+		squad_grid.add_child(_attr_cell(int(p["stam"]), Color(0.25, 0.75, 0.35)))
+		squad_grid.add_child(_attr_cell(int(p["morale"]), Color(0.25, 0.55, 0.95)))
+
+func _attr_cell(val: int, color: Color) -> VBoxContainer:
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 1)
+	var lb := Label.new()
+	lb.text = str(val)
+	vb.add_child(lb)
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 100.0
+	bar.value = float(val)
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(56, 8)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("fill", sb)
+	vb.add_child(bar)
+	return vb
 
 func _render_tactic_info() -> void:
 	tactic_info.text = "Taktik: " + UKTactics.describe_tactics(tactics)
@@ -792,7 +857,6 @@ func _on_save_taktik() -> void:
 	else:
 		tactics.erase("custom")
 		tactic_custom.text = "Posisi: bawaan formasi"
-	sfx.play("whistle")
 	_render_tactic_info()
 	_show_info("Taktik tersimpan", UKTactics.describe_tactics(tactics))
 
@@ -802,6 +866,23 @@ func _opp_ovr(label: String) -> int:
 		if str(t["name"]) == label:
 			return int(t["ovr"])
 	return 72
+
+func _home_xi_names() -> Array:
+	var out: Array = []
+	for i in range(mini(11, squad.size())):
+		out.append(str(squad[i]["name"]))
+	return out
+
+func _gen_away_xi(seed_key: String) -> Array:
+	var rng := RandomNumberGenerator.new()
+	var sd: int = 0
+	for c in seed_key:
+		sd = (sd * 37 + c.unicode_at(0)) % 2147483647
+	rng.seed = sd + 1
+	var out: Array = []
+	for i in range(11):
+		out.append(str(FIRST_NAMES[rng.randi() % FIRST_NAMES.size()]) + " " + str(LAST_NAMES[rng.randi() % LAST_NAMES.size()]))
+	return out
 
 func _on_kickoff() -> void:
 	if club.is_empty():
@@ -826,8 +907,8 @@ func _on_kickoff() -> void:
 	shots_h = 0
 	shots_a = 0
 	match_lines = ["KO! " + str(match_home["name"]) + " vs " + str(match_away["name"]), "Wasit: " + str(ref["info"])]
-	preview.setup()
-	preview.on_event("mid")
+	preview.setup(_home_xi_names(), _gen_away_xi(str(match_opp.get("id", "x"))))
+	preview.on_minute(true)
 	match_active = true
 	match_paused = false
 	ff_active = false
@@ -862,10 +943,12 @@ func _advance_minute() -> void:
 	match_home["staminaAvg"] = float(match_home["staminaAvg"]) - 0.06
 	match_away["staminaAvg"] = float(match_away["staminaAvg"]) - 0.06
 	var share: float = clampf(0.5 + (float(match_home["ovr"]) - float(match_away["ovr"])) * 0.02, 0.32, 0.68)
-	if randf() < share:
+	var poss_home: bool = randf() < share
+	if poss_home:
 		poss_h += 1
 	else:
 		poss_a += 1
+	preview.on_minute(poss_home)
 	var g: String = UKEngine.sim_minute(match_home, match_away, tactics, UKTactics.default_tactics(), {"home": true, "refBias": match_ref_bias, "parkBus": ""})
 	if g == "home":
 		match_hs += 1
@@ -885,18 +968,16 @@ func _advance_minute() -> void:
 			shots_h += 1
 			match_lines.append("%d' 🥅 %s" % [match_minute, str(SAVE_LINES[randi() % SAVE_LINES.size()])])
 			preview.on_event("chance_h")
-			sfx.play("kick")
+			sfx.play("ooh")
 		elif r < 0.13:
 			shots_a += 1
 			match_lines.append("%d' %s" % [match_minute, str(CHANCE_LINES[randi() % CHANCE_LINES.size()])])
 			preview.on_event("chance_a")
 		elif r < 0.15:
 			match_lines.append("%d' %s" % [match_minute, str(CARD_LINES[randi() % CARD_LINES.size()])])
-		else:
-			preview.on_event("mid")
 	if match_minute == 45:
 		match_lines.append("---- HT: %s %d-%d %s ----" % [str(match_home["name"]), match_hs, match_as, str(match_away["name"])])
-		sfx.play("whistle")
+		sfx.play("ht")
 		if not ff_active:
 			match_paused = true
 			match_timer.stop()
@@ -919,6 +1000,8 @@ func _refresh_match_ui() -> void:
 	score_label.text = "%s  %d - %d  %s" % [str(match_home["name"]), match_hs, match_as, str(match_away["name"])]
 	var tag: String = "🔴 LIVE" if match_active else "FT"
 	minute_label.text = "%s • Menit %d'" % [tag, match_minute]
+	poss_home_rect.size_flags_stretch_ratio = float(maxi(poss_h, 1))
+	poss_away_rect.size_flags_stretch_ratio = float(maxi(poss_a, 1))
 	var out: Array = []
 	for l in match_lines:
 		out.append(str(l))
@@ -973,7 +1056,7 @@ func _finish_match() -> void:
 	match_timer.stop()
 	pause_btn.disabled = true
 	sfx.crowd_stop()
-	sfx.play("whistle")
+	sfx.play("ft")
 	match_lines.append("==== FT: %s %d-%d %s ====" % [str(match_home["name"]), match_hs, match_as, str(match_away["name"])])
 	var res: String = "draw"
 	var code: String = "D"
@@ -981,6 +1064,7 @@ func _finish_match() -> void:
 		res = "win"
 		code = "W"
 		sfx.play("cheer")
+		sfx.play("applause")
 	elif match_hs < match_as:
 		res = "lose"
 		code = "L"
@@ -1040,6 +1124,7 @@ func _finish_season() -> void:
 		trophies.append({"icon": "piala_liga", "name": "Juara Liga (Musim %d)" % season_no})
 		headline = "🏆 JUARA! %s menjuarai mini-liga musim %d!" % [str(club["name"]), season_no]
 		sfx.play("cheer")
+		sfx.play("applause")
 	elif my_pos <= 3:
 		prize = 1500
 		headline = "Peringkat %d. Hampir juara, coba lagi musim depan!" % my_pos
@@ -1214,7 +1299,7 @@ func _render_board() -> void:
 	conf_bar.value = float(UKManager.confidence)
 	fans_bar.value = float(UKManager.fan_mood)
 	sponsor_bar.value = float(mini(UKManager.sponsor, 100))
-	board_info.text = "Target: %s\nKas: %s • Sponsor: %d\nStadion %s" % [UKManager.target, UKManager.rupiah(float(UKManager.cash)), UKManager.sponsor, str(club["stadium"])]
+	board_info.text = "Target: %s\nKas: %s • Sponsor: %d\nStadion %s (Lv %d)" % [UKManager.target, UKManager.rupiah(float(UKManager.cash)), UKManager.sponsor, str(club["stadium"]), stadium_lv]
 	_render_trophies()
 
 func _render_trophies() -> void:
@@ -1244,10 +1329,26 @@ func _render_trophies() -> void:
 func _on_income() -> void:
 	if club.is_empty():
 		return
-	var msg: String = UKManager.stadium_income(15000)
+	var att: int = 12000 + stadium_lv * 3000
+	var msg: String = UKManager.stadium_income(att)
 	_render_board()
 	_update_status()
-	_show_info("🏟 Pemasukan stadion", msg)
+	_show_info("🏟 Pemasukan stadion", "Penonton %d (Lv %d)\n%s" % [att, stadium_lv, msg])
+
+func _on_upgrade_stadium() -> void:
+	if club.is_empty():
+		return
+	var cost: int = stadium_lv * 1500
+	if UKManager.cash < cost:
+		_show_info("🏗 Upgrade stadion", "Butuh %s untuk Lv %d." % [UKManager.rupiah(float(cost)), stadium_lv + 1])
+		return
+	UKManager.cash -= cost
+	stadium_lv += 1
+	UKManager.fan_mood = clampi(UKManager.fan_mood + 4, 0, 100)
+	_render_board()
+	_update_status()
+	sfx.play("applause")
+	_show_info("🏗 Stadion naik Lv %d!" % stadium_lv, "Kapasitas & pemasukan bertambah. Fans +4.")
 
 func _on_funds() -> void:
 	if club.is_empty():

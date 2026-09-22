@@ -6,6 +6,7 @@ signal positions_changed
 
 var formation: String = "4-4-2"
 var custom: Array = []
+var lineup: Array = []
 var editable: bool = true
 var drag_idx: int = -1
 var home_color: Color = Color(0.25, 0.62, 1.0)
@@ -22,6 +23,10 @@ func set_formation(f: String) -> void:
 	formation = f
 	custom.clear()
 	drag_idx = -1
+	queue_redraw()
+
+func set_lineup(names: Array) -> void:
+	lineup = names.duplicate()
 	queue_redraw()
 
 func reset_positions() -> void:
@@ -118,11 +123,21 @@ func _draw() -> void:
 	for i in range(pts.size()):
 		var pos := _to_px(pts[i])
 		var col: Color = gk_color if i == 0 else home_color
+		var pname: String = str(lineup[i]) if i < lineup.size() else ""
 		if i == drag_idx:
 			draw_arc(pos, 17.0, 0.0, TAU, 24, Color(1, 1, 1, 0.9), 2.0)
 		draw_circle(pos + Vector2(1.5, 2.0), 11.0, Color(0, 0, 0, 0.35))
 		draw_circle(pos, 11.0, col)
 		draw_arc(pos, 11.0, 0.0, TAU, 24, Color(0, 0, 0, 0.6), 2.0)
-		draw_circle(pos, 3.0, Color(1, 1, 1, 0.9))
+		if pname != "":
+			var skin: Color = FaceAvatar.skin_of(pname)
+			var hair: Color = FaceAvatar.hair_of(pname)
+			draw_circle(pos, 7.0, skin)
+			draw_arc(pos, 7.0, PI, TAU, 12, hair, 4.0)
+			draw_circle(pos + Vector2(-2.5, 0), 1.2, Color(0.1, 0.1, 0.12))
+			draw_circle(pos + Vector2(2.5, 0), 1.2, Color(0.1, 0.1, 0.12))
+			draw_string(ThemeDB.fallback_font, pos + Vector2(-26, 24), pname, HORIZONTAL_ALIGNMENT_CENTER, 52, 11, Color.WHITE)
+		else:
+			draw_circle(pos, 3.0, Color(1, 1, 1, 0.9))
 	if editable:
 		draw_string(ThemeDB.fallback_font, Vector2(8, h - 8), "Geser titik untuk atur posisi manual", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, hint_color)
