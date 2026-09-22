@@ -103,20 +103,20 @@ func _build_ui() -> void:
 	tactic_info = Label.new()
 	tak.add_child(tactic_info)
 
-	var match := VBoxContainer.new()
-	match.name = "Match"
-	tabs.add_child(match)
+	var match_tab := VBoxContainer.new()
+	match_tab.name = "Match"
+	tabs.add_child(match_tab)
 	ref_bribe = CheckBox.new()
 	ref_bribe.text = "Sogok wasit (risiko media)"
-	match.add_child(ref_bribe)
+	match_tab.add_child(ref_bribe)
 	var sim_btn := Button.new()
 	sim_btn.text = "Simulasi"
 	sim_btn.pressed.connect(_on_sim)
-	match.add_child(sim_btn)
+	match_tab.add_child(sim_btn)
 	live_log = TextEdit.new()
 	live_log.editable = false
 	live_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	match.add_child(live_log)
+	match_tab.add_child(live_log)
 
 	var akad := VBoxContainer.new()
 	akad.name = "Akademi"
